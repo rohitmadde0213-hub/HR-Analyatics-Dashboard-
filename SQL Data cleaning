@@ -1,0 +1,92 @@
+-- Create Cleaned HR Table
+CREATE TABLE hr_cleaned AS
+SELECT *
+FROM hr_employee_data;
+
+---------------------------------------------------
+-- 1. Check for NULL Values
+---------------------------------------------------
+
+SELECT
+    COUNT(*) AS total_records,
+    SUM(CASE WHEN EmployeeID IS NULL THEN 1 ELSE 0 END) AS null_employee_id,
+    SUM(CASE WHEN Age IS NULL THEN 1 ELSE 0 END) AS null_age,
+    SUM(CASE WHEN Department IS NULL THEN 1 ELSE 0 END) AS null_department
+FROM hr_cleaned;
+
+---------------------------------------------------
+-- 2. Remove Duplicate Records
+---------------------------------------------------
+
+WITH duplicate_cte AS (
+    SELECT *,
+           ROW_NUMBER() OVER(
+               PARTITION BY EmployeeID
+               ORDER BY EmployeeID
+           ) AS rn
+    FROM hr_cleaned
+)
+DELETE FROM duplicate_cte
+WHERE rn > 1;
+
+---------------------------------------------------
+-- 3. Standardize Text Columns
+---------------------------------------------------
+
+UPDATE hr_cleaned
+SET Department = TRIM(UPPER(Department)),
+    JobRole = TRIM(UPPER(JobRole)),
+    Gender = TRIM(UPPER(Gender));
+
+---------------------------------------------------
+-- 4. Handle Missing Values
+---------------------------------------------------
+
+UPDATE hr_cleaned
+SET Department = 'UNKNOWN'
+WHERE Department IS NULL;
+
+UPDATE hr_cleaned
+SET JobRole = 'UNKNOWN'
+WHERE JobRole IS NULL;
+
+---------------------------------------------------
+-- 5. Remove Invalid Ages
+---------------------------------------------------
+
+DELETE FROM hr_cleaned
+WHERE Age < 18
+   OR Age > 65;
+
+---------------------------------------------------
+-- 6. Remove Negative Salary Values
+---------------------------------------------------
+
+DELETE FROM hr_cleaned
+WHERE MonthlyIncome < 0;
+
+---------------------------------------------------
+-- 7. Standardize Attrition Values
+---------------------------------------------------
+
+UPDATE hr_cleaned
+SET Attrition =
+    CASE
+        WHEN Attrition IN ('Y','YES') THEN 'YES'
+        WHEN Attrition IN ('N','NO') THEN 'NO'
+        ELSE Attrition
+    END;
+
+---------------------------------------------------
+-- 8. Validate Job Satisfaction Score
+---------------------------------------------------
+
+DELETE FROM hr_cleaned
+WHERE JobSatisfaction NOT BETWEEN 1 AND 4;
+
+---------------------------------------------------
+-- 9. Final Clean Dataset Check
+---------------------------------------------------
+
+SELECT *
+FROM hr_cleaned;
